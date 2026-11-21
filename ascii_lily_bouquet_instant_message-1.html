@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#030305" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ASCII Lily Bouquet — For You</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #030305;
+      overflow: hidden;
+      touch-action: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: fixed;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 5px;
+      max-width: calc(100vw - 20px);
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(18, 18, 26, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      z-index: 10;
+    }
+
+    .hud.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 16px);
+    }
+
+    .hud button {
+      background: transparent;
+      border: none;
+      color: rgba(240, 242, 248, 0.92);
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.035em;
+      padding: 7px 8px;
+      white-space: nowrap;
+      border-radius: 999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .hud button:active,
+    .hud button:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+    }
+
+    .hud button.active {
+      background: rgba(255, 110, 155, 0.25);
+      color: #ff9ec0;
+    }
+
+    .divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .hud button.active {
+      background: rgba(255, 110, 155, 0.25);
+      color: #ffb4ce;
+    }
+
+    @media (max-width: 430px) {
+      .hud { gap: 3px; padding: 6px 7px; }
+      .hud button { font-size: 9px; padding: 7px 6px; }
+      .divider { height: 12px; }
+    }
+
+
+    /* Subtle CRT texture like the reference: the flowers remain ASCII, not photographic. */
+    .crt-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.055) 0px,
+          rgba(255, 255, 255, 0.055) 1px,
+          transparent 1px,
+          transparent 3px
+        ),
+        radial-gradient(ellipse at 50% 48%, transparent 42%, rgba(0, 0, 0, 0.42) 100%);
+      opacity: 0.34;
+      mix-blend-mode: screen;
+    }
+    .crt-overlay::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 55%, transparent 34%, rgba(3,3,8,.22) 78%, rgba(0,0,0,.58) 100%);
+    }
+
+    .dedication {
+      position: fixed;
+      z-index: 30;
+      left: 50%;
+      bottom: max(104px, calc(env(safe-area-inset-bottom) + 92px));
+      transform: translate(-50%, 10px);
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      color: rgba(255, 232, 239, 0.96);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(22px, 5vw, 32px);
+      font-style: italic;
+      letter-spacing: 0.055em;
+      text-align: center;
+      text-shadow: 0 0 12px rgba(255, 120, 170, 0.62), 0 0 28px rgba(255, 70, 130, 0.34), 0 0 54px rgba(255, 110, 170, 0.18);
+      filter: drop-shadow(0 0 8px rgba(255, 145, 190, 0.22));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0s linear, transform 0.22s ease-out;
+      white-space: nowrap;
+      letter-spacing: 0.075em;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: radial-gradient(ellipse, rgba(35, 10, 24, 0.48), rgba(3, 3, 5, 0));
+      backdrop-filter: blur(2px);
+    }
+.dedication.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+      animation: dedicationGlow 3.8s ease-in-out infinite alternate;
+    }
+    @keyframes dedicationGlow {
+      from { text-shadow: 0 0 10px rgba(255, 120, 170, .48), 0 0 24px rgba(255, 70, 130, .22); }
+      to { text-shadow: 0 0 18px rgba(255, 170, 205, .82), 0 0 42px rgba(255, 70, 130, .42); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dedication, .dedication.visible { transition: none; animation: none; }
+    }
+
+    .hint {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(220, 225, 235, 0.5);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+      white-space: nowrap;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" aria-label="Animated ASCII lily bouquet"></canvas>
+  <div class="crt-overlay" aria-hidden="true"></div>
+  <div class="dedication" id="dedication" aria-live="polite" aria-hidden="true">For You &lt;3</div>
+
+  <div class="hint" id="hint">TAP TO REBLOOM · DRAG / PINCH TO INSPECT · SPACE TO PAUSE · ♥</div>
+
+  <div class="hud" id="hud">
+    <button id="btnReplay" title="Replay Bloom">↻ BLOOM</button>
+    <button id="btnPause" title="Pause or resume">Ⅱ PAUSE</button>
+    <button id="btnSpeed" title="Change animation speed">◷ 1×</button>
+    <button id="btnAmbience" title="Toggle stars and pollen" class="active">✧ AMBIENCE</button>
+    <div class="divider"></div>
+    <button id="btnGyro" title="Tilt Phone to Sway" style="display: none;">✦ TILT</button>
+    <button id="btnHide" title="Clean View (Double-tap screen to restore)">◉ CLEAN</button>
+  </div>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const hud = document.getElementById("hud");
+      const hint = document.getElementById("hint");
+      const dedication = document.getElementById("dedication");
+      const btnReplay = document.getElementById("btnReplay");
+      const btnPause = document.getElementById("btnPause");
+      const btnSpeed = document.getElementById("btnSpeed");
+      const btnAmbience = document.getElementById("btnAmbience");
+      const btnGyro = document.getElementById("btnGyro");
+      const btnHide = document.getElementById("btnHide");
+      if (!ctx) {
+        hint.textContent = "Canvas is unavailable in this browser. Please open this file in Chrome.";
+        hint.style.opacity = "1";
+        return;
+      }
+      window.addEventListener("error", (event) => {
+        console.error("Lily animation error:", event.error || event.message);
+        hint.textContent = "Animation hiccup — tap BLOOM to retry";
+        hint.style.opacity = "1";
+      });
+
+      let width = 360, height = 640, dpr = 1, cx = 180, cy = 540, scale = 1, isMobilePortrait = true;
+
+      // Smooth camera & touch state
+      let userYaw = 0;
+      let userPitch = 0;
+      let targetYaw = 0;
+      let targetPitch = 0;
+      let userZoom = 1.0;
+      let targetZoom = 1.0;
+
+      // Gyroscope tilt offsets
+      let gyroX = 0;
+      let gyroY = 0;
+      let gyroEnabled = false;
+      let isPaused = false;
+      let pausedElapsed = 0;
+      let animationSpeed = 1;
+      const speedSteps = [0.75, 1, 1.35];
+      let speedIndex = 1;
+      let showAmbience = true;
+
+      // Interactive touch ripples
+      const ripples = [];
+      let lastShootingStar = 0;
+      const heartMotes = Array.from({ length: 9 }, (_, i) => ({
+        phase: i * 0.72, x: (Math.random() - 0.5) * 210,
+        y: -180 - Math.random() * 250, size: 7 + Math.random() * 5
+      }));
+
+      // Sakura shower begins only after the bouquet has fully bloomed.
+      // Fixed particle properties keep the fall smooth and consistent on mobile.
+      const sakuraPetals = Array.from({ length: 34 }, (_, i) => ({
+        x: Math.random(), y: Math.random(),
+        size: 3.2 + Math.random() * 5.2,
+        speed: 0.20 + Math.random() * 0.42,
+        drift: 10 + Math.random() * 24,
+        sway: 0.7 + Math.random() * 1.8,
+        phase: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.045,
+        hue: 330 + Math.random() * 25,
+        alpha: 0.48 + Math.random() * 0.42
+      }));
+
+      // Authentic ASCII shading ramp matching the reference video
+      const ASCII_CHARS = [".", ":", "-", "=", "+", "*", "#", "%", "@", "W", "M"];
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        width = Math.max(240, Math.round(rect.width) || window.innerWidth || document.documentElement.clientWidth || 360);
+        height = Math.max(320, Math.round(rect.height) || window.innerHeight || document.documentElement.clientHeight || 640);
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        isMobilePortrait = height > width && width < 768;
+        cx = width * 0.5;
+
+        if (isMobilePortrait) {
+          cy = height * 0.85;
+          scale = Math.min(width / 385, height / 640);
+        } else {
+          cy = height * 0.89;
+          scale = Math.min(width, height) / 740;
+        }
+      }
+
+      window.addEventListener("resize", resize);
+      window.addEventListener("pageshow", resize);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
+      window.addEventListener("orientationchange", () => setTimeout(resize, 120));
+      resize();
+
+      // Twinkling background starfield + floating golden/rose pollen motes
+      const bgStars = Array.from({ length: 120 }, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.4 + 0.5,
+        alpha: Math.random() * 0.48 + 0.12,
+        twinkleSpeed: 0.0015 + Math.random() * 0.0025,
+        phase: Math.random() * Math.PI * 2
+      }));
+
+      const pollenMotes = Array.from({ length: 38 }, () => ({
+        x: (Math.random() - 0.5) * 340,
+        y: -120 - Math.random() * 380,
+        z: (Math.random() - 0.5) * 140,
+        vy: -0.14 - Math.random() * 0.18,
+        driftPhase: Math.random() * Math.PI * 2,
+        size: Math.random() * 1.6 + 0.8,
+        hue: Math.random() > 0.35 ? "255, 215, 130" : "255, 175, 205"
+      }));
+
+      // 11 Asiatic & Oriental Stargazer Lilies arranged identically to the reference video
+      const FLOWER_CONFIGS = [
+        {
+          tx: -2, ty: -458, tz: -32,
+          rotX: 0.32, rotY: 0.02, rotZ: 0.03,
+          size: 72, delay: 0.10, twist: 0.2,
+          colors: { throat: [155, 135, 55], base: [185, 85, 75], mid: [235, 145, 120], tip: [255, 222, 205], spot: [130, 35, 35], stamen: [235, 145, 45] }
+        },
+        {
+          tx: -86, ty: -412, tz: -18,
+          rotX: 0.38, rotY: -0.22, rotZ: -0.20,
+          size: 76, delay: 0.15, twist: -0.15,
+          colors: { throat: [145, 165, 65], base: [185, 180, 165], mid: [235, 232, 224], tip: [255, 255, 252], spot: [140, 110, 65], stamen: [225, 145, 35] }
+        },
+        {
+          tx: 94, ty: -415, tz: -20,
+          rotX: 0.36, rotY: 0.24, rotZ: 0.22,
+          size: 76, delay: 0.17, twist: 0.35,
+          colors: { throat: [145, 150, 35], base: [195, 155, 30], mid: [240, 205, 65], tip: [255, 245, 175], spot: [145, 75, 15], stamen: [215, 95, 25] }
+        },
+        {
+          tx: -115, ty: -322, tz: -4,
+          rotX: 0.44, rotY: -0.32, rotZ: -0.34,
+          size: 78, delay: 0.22, twist: 0.1,
+          colors: { throat: [150, 145, 30], base: [200, 150, 25], mid: [245, 200, 55], tip: [255, 245, 165], spot: [155, 70, 15], stamen: [215, 90, 20] }
+        },
+        {
+          tx: -8, ty: -348, tz: 24,
+          rotX: 0.48, rotY: -0.03, rotZ: -0.02,
+          size: 92, delay: 0.19, twist: 0.0,
+          colors: { throat: [110, 125, 35], base: [155, 14, 24], mid: [225, 28, 42], tip: [255, 115, 120], spot: [75, 5, 12], stamen: [245, 185, 45] }
+        },
+        {
+          tx: 112, ty: -315, tz: 8,
+          rotX: 0.45, rotY: 0.30, rotZ: 0.30,
+          size: 84, delay: 0.25, twist: -0.25,
+          colors: { throat: [120, 115, 40], base: [135, 18, 52], mid: [195, 38, 85], tip: [245, 130, 165], spot: [65, 8, 28], stamen: [240, 180, 45] }
+        },
+        {
+          tx: -68, ty: -232, tz: 44,
+          rotX: 0.56, rotY: -0.18, rotZ: -0.18,
+          size: 94, delay: 0.30, twist: 0.15,
+          colors: { throat: [135, 165, 55], base: [185, 38, 125], mid: [242, 95, 185], tip: [255, 215, 240], spot: [115, 15, 65], stamen: [235, 155, 35] }
+        },
+        {
+          tx: 64, ty: -238, tz: 48,
+          rotX: 0.55, rotY: 0.18, rotZ: 0.16,
+          size: 98, delay: 0.32, twist: -0.1,
+          colors: { throat: [145, 175, 65], base: [195, 185, 165], mid: [242, 236, 224], tip: [255, 255, 252], spot: [145, 95, 45], stamen: [225, 135, 30] }
+        },
+        {
+          tx: -116, ty: -158, tz: 26,
+          rotX: 0.58, rotY: -0.34, rotZ: -0.38,
+          size: 80, delay: 0.38, twist: 0.28,
+          colors: { throat: [145, 165, 30], base: [195, 175, 18], mid: [245, 222, 45], tip: [255, 252, 175], spot: [140, 85, 15], stamen: [215, 95, 20] }
+        },
+        {
+          tx: -6, ty: -146, tz: 62,
+          rotX: 0.65, rotY: -0.02, rotZ: 0.02,
+          size: 92, delay: 0.41, twist: 0.05,
+          colors: { throat: [145, 160, 55], base: [195, 115, 75], mid: [242, 185, 145], tip: [255, 242, 228], spot: [145, 45, 25], stamen: [225, 125, 30] }
+        },
+        {
+          tx: 108, ty: -148, tz: 30,
+          rotX: 0.60, rotY: 0.32, rotZ: 0.34,
+          size: 78, delay: 0.44, twist: -0.2,
+          colors: { throat: [105, 115, 30], base: [125, 10, 18], mid: [185, 22, 34], tip: [235, 95, 105], spot: [55, 4, 8], stamen: [240, 180, 45] }
+        }
+      ];
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function lerpColor(c1, c2, t) {
+        return [
+          Math.round(lerp(c1[0], c2[0], t)),
+          Math.round(lerp(c1[1], c2[1], t)),
+          Math.round(lerp(c1[2], c2[2], t))
+        ];
+      }
+
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+
+      function easeOutQuint(t) {
+        const x = clamp(t, 0, 1);
+        return 1 - Math.pow(1 - x, 5);
+      }
+
+      function rotate3D(x, y, z, rx, ry, rz) {
+        const cosX = Math.cos(rx), sinX = Math.sin(rx);
+        const y1 = y * cosX - z * sinX;
+        const z1 = y * sinX + z * cosX;
+
+        const cosY = Math.cos(ry), sinY = Math.sin(ry);
+        const x2 = x * cosY + z1 * sinY;
+        const z2 = -x * sinY + z1 * cosY;
+
+        const cosZ = Math.cos(rz), sinZ = Math.sin(rz);
+        const x3 = x2 * cosZ - y1 * sinZ;
+        const y3 = x2 * sinZ + y1 * cosZ;
+
+        return { x: x3, y: y3, z: z2 };
+      }
+
+      function evalBezier(p0, p1, p2, p3, t) {
+        const u = 1 - t;
+        const tt = t * t;
+        const uu = u * u;
+        const uuu = uu * u;
+        const ttt = tt * t;
+        return {
+          x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+          y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y,
+          z: uuu * p0.z + 3 * uu * t * p1.z + 3 * u * tt * p2.z + ttt * p3.z
+        };
+      }
+
+      // Build velvety, crisp ASCII botanical geometry
+      const points = [];
+      const BOW_Y = -44;
+
+      FLOWER_CONFIGS.forEach((f, fIdx) => {
+        // Give every bloom a little breathing room while retaining the same bouquet silhouette.
+        // The alternating offsets separate neighbouring flower heads so their ASCII petals read individually.
+        const spreadX = [0, -12, 13, -17, 0, 17, -13, 13, -16, 0, 16][fIdx];
+        const spreadY = [0, -5, -5, -2, 2, -1, 2, 1, 4, 5, 4][fIdx];
+        f.tx = f.tx * 1.10 + spreadX;
+        f.ty = f.ty * 1.08 + spreadY;
+        f.size *= 0.86;
+        const footX = (f.tx / 130) * 28;
+        const footZ = (f.tz / 65) * 12;
+        const knotX = (f.tx / 130) * 9;
+        const knotZ = (f.tz / 65) * 6;
+
+        const lowerP0 = { x: footX, y: 0, z: footZ };
+        const lowerP1 = { x: lerp(footX, knotX, 0.35), y: BOW_Y * 0.35, z: lerp(footZ, knotZ, 0.35) };
+        const lowerP2 = { x: lerp(footX, knotX, 0.75), y: BOW_Y * 0.75, z: lerp(footZ, knotZ, 0.75) };
+        const lowerP3 = { x: knotX, y: BOW_Y, z: knotZ };
+
+        const upperP0 = { x: knotX, y: BOW_Y, z: knotZ };
+        const upperP1 = { x: lerp(knotX, f.tx, 0.28), y: lerp(BOW_Y, f.ty, 0.34), z: lerp(knotZ, f.tz, 0.32) };
+        const upperP2 = { x: lerp(knotX, f.tx, 0.74), y: lerp(BOW_Y, f.ty, 0.72), z: lerp(knotZ, f.tz, 0.75) };
+        const upperP3 = { x: f.tx, y: f.ty, z: f.tz };
+
+        // 1. Stems grow from 0.00 -> 0.34 (matching the ~1.4s stem rise in the video)
+        const stemSteps = 58;
+        for (let i = 0; i <= stemSteps; i++) {
+          const globalT = i / stemSteps;
+          let pos;
+          if (globalT < 0.16) {
+            pos = evalBezier(lowerP0, lowerP1, lowerP2, lowerP3, globalT / 0.16);
+          } else {
+            pos = evalBezier(upperP0, upperP1, upperP2, upperP3, (globalT - 0.16) / 0.84);
+          }
+
+          const thickness = lerp(2.8, 1.4, globalT);
+          for (let s = -1; s <= 1; s++) {
+            const shade = s === 0 ? 0.92 : 0.52;
+            points.push({
+              type: "stem",
+              x: pos.x + s * thickness,
+              y: pos.y,
+              z: pos.z + (s === 0 ? 1 : -1),
+              progressThreshold: globalT * 0.34,
+              swayWeight: clamp(-pos.y / 450, 0, 1.2),
+              r: Math.round(lerp(42, 95, globalT) * shade),
+              g: Math.round(lerp(122, 185, globalT) * shade),
+              b: Math.round(lerp(34, 62, globalT) * shade),
+              charIndex: s === 0 ? 7 : 4
+            });
+          }
+        }
+
+        // 2. Lanceolate lily leaves unfurl along the stems
+        const leafCount = 3;
+        for (let l = 0; l < leafCount; l++) {
+          const stemT = 0.24 + l * 0.22 + (fIdx % 2) * 0.03;
+          const anchor = evalBezier(upperP0, upperP1, upperP2, upperP3, stemT);
+          const side = (l + fIdx) % 2 === 0 ? 1 : -1;
+          const leafLen = lerp(82, 46, stemT);
+          const leafWidth = lerp(14, 8.5, stemT);
+          const angleOut = side * (0.48 + (l % 2) * 0.28);
+
+          const uSteps = 14;
+          const vSteps = 5;
+          for (let iu = 0; iu <= uSteps; iu++) {
+            const u = iu / uSteps;
+            const profile = Math.sin(u * Math.PI) * Math.pow(1 - u, 0.32);
+            for (let iv = -vSteps; iv <= vSteps; iv++) {
+              const v = iv / vSteps;
+              const localX = u * leafLen;
+              const localY = -Math.sin(u * Math.PI * 0.72) * 20 + u * u * 18;
+              const localZ = v * leafWidth * profile;
+
+              const lx = localX * Math.cos(angleOut) - localZ * Math.sin(angleOut);
+              const lz = localX * Math.sin(angleOut) + localZ * Math.cos(angleOut);
+              const ly = localY - Math.abs(v) * 2.5;
+
+              const isMidrib = Math.abs(v) < 0.22;
+              const light = isMidrib ? 1.1 : 0.68 + (1 - Math.abs(v)) * 0.36;
+              const wx = anchor.x + lx;
+              const wy = anchor.y + ly;
+
+              points.push({
+                type: "leaf",
+                x: wx,
+                y: wy,
+                z: anchor.z + lz,
+                progressThreshold: (0.16 + stemT * 0.84) * 0.34 + u * 0.11,
+                swayWeight: clamp(-wy / 450, 0, 1.2),
+                r: Math.round(lerp(35, 118, u) * light),
+                g: Math.round(lerp(110, 195, u) * light),
+                b: Math.round(lerp(28, 58, u) * light),
+                charIndex: isMidrib ? 8 : Math.floor((1 - Math.abs(v)) * 6) + 2
+              });
+            }
+          }
+        }
+
+        // 3. Six-tepal Lily Blossoms (buds form ~1.5s, bloom open smoothly by ~3.5s)
+        const numPetals = 6;
+        for (let p = 0; p < numPetals; p++) {
+          const isInner = p % 2 === 1;
+          const baseAzimuth = (p * Math.PI * 2) / numPetals + f.twist;
+          const petalLen = f.size * (isInner ? 0.98 : 1.03);
+          const petalMaxW = f.size * (isInner ? 0.32 : 0.26);
+
+          const uSteps = 22;
+          const vSteps = 8;
+
+          for (let iu = 0; iu <= uSteps; iu++) {
+            const u = iu / uSteps;
+            const widthEnv = Math.sin(Math.pow(u, 0.72) * Math.PI) * Math.pow(1 - u * 0.22, 0.65);
+
+            for (let iv = -vSteps; iv <= vSteps; iv++) {
+              const v = iv / vSteps;
+
+              // Upright closed oval bud (matching 00:01.5 - 00:02.0 in video)
+              const budRadius = petalLen * (0.16 * Math.sin(u * Math.PI) + 0.03);
+              const budHeight = -u * petalLen * 0.88;
+
+              // Open star-trumpet lily form
+              const openFlare = Math.pow(u, 1.25) * petalLen * 0.84 + u * petalLen * 0.16;
+              const openHeight = -Math.sin(u * Math.PI * 0.58) * petalLen * 0.60 + Math.pow(u, 2.5) * petalLen * 0.38;
+
+              const keelRidge = (1 - Math.pow(Math.abs(v), 1.6)) * 6.0 * Math.sin(u * Math.PI);
+              const edgeRuffle = Math.sin(u * 15.0 + p) * 1.6 * Math.pow(Math.abs(v), 1.8) * Math.sin(u * Math.PI);
+
+              const budPosLocal = {
+                x: budRadius + keelRidge * 0.25,
+                y: budHeight,
+                z: v * petalMaxW * widthEnv * 0.45
+              };
+
+              const openPosLocal = {
+                x: openFlare + keelRidge + edgeRuffle,
+                y: openHeight + edgeRuffle * 0.4,
+                z: v * petalMaxW * widthEnv
+              };
+
+              const cosA = Math.cos(baseAzimuth);
+              const sinA = Math.sin(baseAzimuth);
+
+              const bRotA = {
+                x: budPosLocal.x * cosA - budPosLocal.z * sinA,
+                y: budPosLocal.y,
+                z: budPosLocal.x * sinA + budPosLocal.z * cosA
+              };
+
+              const oRotA = {
+                x: openPosLocal.x * cosA - openPosLocal.z * sinA,
+                y: openPosLocal.y,
+                z: openPosLocal.x * sinA + openPosLocal.z * cosA
+              };
+
+              const budWorld = rotate3D(bRotA.x, bRotA.y, bRotA.z, f.rotX, f.rotY, f.rotZ);
+              const openWorld = rotate3D(oRotA.x, oRotA.y, oRotA.z, f.rotX, f.rotY, f.rotZ);
+
+              let col;
+              if (u < 0.20) {
+                col = lerpColor(f.colors.throat, f.colors.base, u / 0.20);
+              } else if (u < 0.65) {
+                col = lerpColor(f.colors.base, f.colors.mid, (u - 0.20) / 0.45);
+              } else {
+                col = lerpColor(f.colors.mid, f.colors.tip, (u - 0.65) / 0.35);
+              }
+
+              if (isInner && Math.abs(v) > 0.78 && u > 0.22 && u < 0.88) {
+                const rimT = (Math.abs(v) - 0.78) / 0.22;
+                col = lerpColor(col, f.colors.tip, rimT * 0.55);
+              }
+
+              const isSpot =
+                u > 0.17 &&
+                u < 0.54 &&
+                Math.abs(v) < 0.62 &&
+                Math.sin(iu * 21.7 + iv * 8.3 + p * 4.1 + fIdx) > 0.77;
+
+              if (isSpot) {
+                col = lerpColor(col, f.colors.spot, 0.78);
+              }
+
+              const midrib = Math.exp(-v * v * 14) * 0.20;
+              const edgeGlow = Math.pow(Math.abs(v), 2.4) * 0.16;
+              const shade = clamp(0.76 + u * 0.30 + midrib + edgeGlow, 0.38, 1.24);
+
+              const charIdx = isSpot
+                ? 8
+                : clamp(Math.floor((u * 0.52 + (1 - Math.abs(v)) * 0.48) * (ASCII_CHARS.length - 1)), 2, ASCII_CHARS.length - 1);
+
+              const ox = f.tx + openWorld.x;
+              const oy = f.ty + openWorld.y;
+
+              points.push({
+                type: "petal",
+                bx: f.tx + budWorld.x,
+                by: f.ty + budWorld.y,
+                bz: f.tz + budWorld.z,
+                ox,
+                oy,
+                oz: f.tz + openWorld.z,
+                bloomStart: 0.32 + f.delay * 0.35,
+                bloomDuration: 0.36,
+                swayWeight: clamp(-oy / 450, 0, 1.25),
+                petalFlutter: u * 2.2,
+                r: clamp(Math.round(col[0] * shade), 0, 255),
+                g: clamp(Math.round(col[1] * shade), 0, 255),
+                b: clamp(Math.round(col[2] * shade), 0, 255),
+                charIndex: charIdx
+              });
+            }
+          }
+        }
+
+        // 4. Stamens & Anthers
+        for (let s = 0; s < 6; s++) {
+          const az = (s * Math.PI * 2) / 6 + 0.25 + f.twist;
+          const sLen = f.size * 0.72;
+          for (let i = 1; i <= 9; i++) {
+            const u = i / 9;
+            const isAnther = i >= 8;
+
+            const budLocal = { x: Math.sin(u * Math.PI) * 3, y: -u * sLen * 0.85, z: 0 };
+            const openLocal = {
+              x: Math.pow(u, 1.55) * sLen * 0.38,
+              y: -u * sLen * 0.94,
+              z: isAnther ? (i === 9 ? 2.2 : -2.2) : 0
+            };
+
+            const bRot = { x: budLocal.x * Math.cos(az), y: budLocal.y, z: budLocal.x * Math.sin(az) };
+            const oRot = {
+              x: openLocal.x * Math.cos(az) - openLocal.z * Math.sin(az),
+              y: openLocal.y,
+              z: openLocal.x * Math.sin(az) + openLocal.z * Math.cos(az)
+            };
+
+            const budW = rotate3D(bRot.x, bRot.y, bRot.z, f.rotX, f.rotY, f.rotZ);
+            const openW = rotate3D(oRot.x, oRot.y, oRot.z, f.rotX, f.rotY, f.rotZ);
+            const oy = f.ty + openW.y;
+
+            points.push({
+              type: "petal",
+              bx: f.tx + budW.x,
+              by: f.ty + budW.y,
+              bz: f.tz + budW.z,
+              ox: f.tx + openW.x,
+              oy,
+              oz: f.tz + openW.z,
+              bloomStart: 0.34 + f.delay * 0.35,
+              bloomDuration: 0.36,
+              swayWeight: clamp(-oy / 450, 0, 1.25),
+              petalFlutter: u * 2.5,
+              r: isAnther ? f.colors.stamen[0] : 210,
+              g: isAnther ? f.colors.stamen[1] : 235,
+              b: isAnther ? f.colors.stamen[2] : 150,
+              charIndex: isAnther ? 9 : 3
+            });
+          }
+        }
+      });
+
+      // 5. Silk Satin Ribbon Bow at the Bouquet Handle
+      function generateBouquetBow() {
+        const bowZ = 16;
+        const ribbonBase = [195, 28, 62];
+        const ribbonMid = [242, 72, 112];
+        const ribbonHighlight = [255, 175, 198];
+
+        for (let ay = -7; ay <= 7; ay += 2.6) {
+          for (let ang = -Math.PI * 0.65; ang <= Math.PI * 0.65; ang += 0.18) {
+            const rx = Math.sin(ang) * 19;
+            const rz = Math.cos(ang) * 15 + 3;
+            const highlight = Math.cos(ang) * 0.35 + (1 - Math.abs(ay) / 8) * 0.2;
+            const col = lerpColor(ribbonBase, ribbonHighlight, clamp(highlight, 0, 1));
+            points.push({
+              type: "bow",
+              x: rx,
+              y: BOW_Y + ay,
+              z: rz,
+              progressThreshold: 0.11,
+              swayWeight: 0.08,
+              ribbonWave: 0,
+              r: col[0],
+              g: col[1],
+              b: col[2],
+              charIndex: highlight > 0.32 ? 8 : 6
+            });
+          }
+        }
+
+        for (let ky = -6; ky <= 6; ky += 2.2) {
+          for (let kx = -7; kx <= 7; kx += 2.2) {
+            const dist = Math.hypot(kx / 7, ky / 6);
+            if (dist > 1) continue;
+            const col = lerpColor(ribbonMid, ribbonHighlight, (1 - dist) * 0.65);
+            points.push({
+              type: "bow",
+              x: kx,
+              y: BOW_Y + ky,
+              z: bowZ + (1 - dist) * 5,
+              progressThreshold: 0.13,
+              swayWeight: 0.08,
+              ribbonWave: 0,
+              r: col[0],
+              g: col[1],
+              b: col[2],
+              charIndex: 9
+            });
+          }
+        }
+
+        [-1, 1].forEach((side) => {
+          const uSteps = 24;
+          const vSteps = 5;
+          for (let iu = 0; iu <= uSteps; iu++) {
+            const u = iu / uSteps;
+            const theta = u * Math.PI;
+            const loopReach = Math.sin(theta) * 52;
+            const loopLift = Math.sin(theta * 2) * 14 - Math.sin(theta) * 4;
+            const foldZ = Math.sin(theta) * 12;
+
+            for (let iv = -vSteps; iv <= vSteps; iv++) {
+              const v = iv / vSteps;
+              const halfWidth = lerp(3.5, 11.5, Math.sin(theta));
+              const px = side * loopReach;
+              const py = BOW_Y - loopLift + v * halfWidth;
+              const pz = bowZ + foldZ - Math.abs(v) * 2.5 + (u > 0.5 ? -4 : 3);
+
+              const sheen = Math.sin(theta) * (1 - Math.abs(v) * 0.6);
+              const col = lerpColor(
+                ribbonBase,
+                sheen > 0.55 ? ribbonHighlight : ribbonMid,
+                clamp(sheen, 0, 1)
+              );
+
+              points.push({
+                type: "bow",
+                x: px,
+                y: py,
+                z: pz,
+                progressThreshold: 0.14 + Math.sin(theta) * 0.05,
+                swayWeight: 0.10,
+                ribbonWave: side * Math.sin(theta) * 1.4,
+                r: col[0],
+                g: col[1],
+                b: col[2],
+                charIndex: sheen > 0.65 ? 8 : 5
+              });
+            }
+          }
+
+          const tailSteps = 22;
+          const wSteps = 4;
+          for (let it = 0; it <= tailSteps; it++) {
+            const t = it / tailSteps;
+            const tailX = side * (10 + t * 34 + Math.sin(t * 4.2) * 6);
+            const tailY = BOW_Y + 4 + t * 58;
+            const tailZ = bowZ - 2 + Math.sin(t * 3.5) * 6;
+            const halfW = lerp(5.5, 8.5, t);
+
+            for (let iw = -wSteps; iw <= wSteps; iw++) {
+              const w = iw / wSteps;
+              if (t > 0.86 && (t - 0.86) / 0.14 > Math.abs(w)) continue;
+
+              const shimmer = 0.5 + 0.5 * Math.sin(t * 5.0 + w);
+              const col = lerpColor(ribbonBase, ribbonHighlight, shimmer * 0.58);
+
+              points.push({
+                type: "bow",
+                x: tailX + w * halfW * 0.85,
+                y: tailY + Math.abs(w) * 1.5,
+                z: tailZ + w * halfW * 0.45,
+                progressThreshold: 0.16 + t * 0.07,
+                swayWeight: 0.12,
+                ribbonWave: side * (1.2 + t * 4.5),
+                r: col[0],
+                g: col[1],
+                b: col[2],
+                charIndex: shimmer > 0.65 ? 7 : 5
+              });
+            }
+          }
+        });
+      }
+
+      generateBouquetBow();
+
+      // --- Mobile & Desktop Interactive Controls ---
+      let isDragging = false;
+      let dragMoved = false;
+      let lastX = 0;
+      let lastY = 0;
+      let initialPinchDist = null;
+      let initialZoom = 1.0;
+      let lastTapTime = 0;
+      let startTime = null;
+
+      function triggerHaptic(ms = 12) {
+        if (navigator.vibrate) {
+          try { navigator.vibrate(ms); } catch (_) {}
+        }
+      }
+
+      function replayBloom() {
+        dedication.classList.remove("visible");
+        startTime = performance.now();
+        pausedElapsed = 0;
+        isPaused = false;
+        btnPause.textContent = "Ⅱ PAUSE";
+        btnPause.classList.remove("active");
+        triggerHaptic(18);
+      }
+
+      function togglePause() {
+        const now = performance.now();
+        if (!isPaused) {
+          pausedElapsed = startTime === null ? 0 : Math.max(0, (now - startTime) * animationSpeed);
+          isPaused = true;
+          btnPause.textContent = "▶ PLAY";
+          btnPause.classList.add("active");
+        } else {
+          startTime = now - pausedElapsed / animationSpeed;
+          isPaused = false;
+          btnPause.textContent = "Ⅱ PAUSE";
+          btnPause.classList.remove("active");
+        }
+        triggerHaptic(10);
+      }
+
+      function changeSpeed() {
+        const now = performance.now();
+        const currentElapsed = isPaused ? pausedElapsed : (startTime === null ? 0 : (now - startTime) * animationSpeed);
+        speedIndex = (speedIndex + 1) % speedSteps.length;
+        animationSpeed = speedSteps[speedIndex];
+        pausedElapsed = currentElapsed;
+        if (!isPaused && startTime !== null) startTime = now - pausedElapsed / animationSpeed;
+        btnSpeed.textContent = `${animationSpeed}× SPEED`;
+        triggerHaptic(8);
+      }
+
+      function addRipple(x, y) {
+        ripples.push({ x, y, r: 4, alpha: 0.65 });
+      }
+
+      canvas.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          dragMoved = false;
+          lastX = e.touches[0].clientX;
+          lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          isDragging = false;
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          initialPinchDist = Math.hypot(dx, dy);
+          initialZoom = targetZoom;
+        }
+      }, { passive: true });
+
+      canvas.addEventListener("touchmove", (e) => {
+        if (e.touches.length === 1 && isDragging) {
+          const dx = e.touches[0].clientX - lastX;
+          const dy = e.touches[0].clientY - lastY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved = true;
+
+          targetYaw = clamp(targetYaw + dx * 0.0065, -0.85, 0.85);
+          targetPitch = clamp(targetPitch + dy * 0.004, -0.35, 0.35);
+
+          lastX = e.touches[0].clientX;
+          lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2 && initialPinchDist) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          targetZoom = clamp(initialZoom * (dist / initialPinchDist), 0.72, 1.75);
+        }
+      }, { passive: true });
+
+      canvas.addEventListener("touchend", (e) => {
+        if (e.touches.length === 0) {
+          if (!dragMoved && initialPinchDist === null) {
+            const now = Date.now();
+            const touch = e.changedTouches[0];
+            addRipple(touch.clientX, touch.clientY);
+
+            if (now - lastTapTime < 280) {
+              hud.classList.toggle("hidden");
+              triggerHaptic(10);
+            } else {
+              targetYaw = 0;
+              targetPitch = 0;
+              targetZoom = 1.0;
+              replayBloom();
+            }
+            lastTapTime = now;
+          }
+          isDragging = false;
+          initialPinchDist = null;
+        }
+      });
+
+      canvas.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        dragMoved = false;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+
+        targetYaw = clamp(targetYaw + dx * 0.005, -0.85, 0.85);
+        targetPitch = clamp(targetPitch + dy * 0.0035, -0.35, 0.35);
+
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+
+      window.addEventListener("mouseup", (e) => {
+        if (isDragging && !dragMoved) {
+          addRipple(e.clientX, e.clientY);
+          targetYaw = 0;
+          targetPitch = 0;
+          targetZoom = 1.0;
+          replayBloom();
+        }
+        isDragging = false;
+      });
+
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        targetZoom = clamp(targetZoom - e.deltaY * 0.0008, 0.72, 1.75);
+      }, { passive: false });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault();
+          togglePause();
+        } else if (e.key.toLowerCase() === "r") {
+          replayBloom();
+        } else if (e.key.toLowerCase() === "h") {
+          hud.classList.toggle("hidden");
+        } else if (e.key.toLowerCase() === "s") {
+          changeSpeed();
+        } else if (e.key.toLowerCase() === "a") {
+          showAmbience = !showAmbience;
+          btnAmbience.classList.toggle("active", !showAmbience);
+          btnAmbience.textContent = showAmbience ? "✧ AMBIENCE" : "✧ QUIET";
+        }
+      });
+
+      btnReplay.addEventListener("click", (e) => {
+        e.stopPropagation();
+        targetYaw = 0;
+        targetPitch = 0;
+        targetZoom = 1.0;
+        replayBloom();
+      });
+
+      btnPause.addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePause();
+      });
+
+      btnSpeed.addEventListener("click", (e) => {
+        e.stopPropagation();
+        changeSpeed();
+      });
+
+      btnAmbience.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showAmbience = !showAmbience;
+        btnAmbience.classList.toggle("active", !showAmbience);
+        btnAmbience.textContent = showAmbience ? "✧ AMBIENCE" : "✧ QUIET";
+        triggerHaptic(8);
+      });
+
+      btnHide.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hud.classList.add("hidden");
+        triggerHaptic(10);
+      });
+
+      if (typeof DeviceOrientationEvent !== "undefined") {
+        btnGyro.style.display = "flex";
+        btnGyro.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (typeof DeviceOrientationEvent.requestPermission === "function") {
+            try {
+              const res = await DeviceOrientationEvent.requestPermission();
+              if (res === "granted") gyroEnabled = !gyroEnabled;
+            } catch (_) {}
+          } else {
+            gyroEnabled = !gyroEnabled;
+          }
+          btnGyro.classList.toggle("active", gyroEnabled);
+          if (!gyroEnabled) {
+            gyroX = 0;
+            gyroY = 0;
+          }
+          triggerHaptic(12);
+        });
+
+        window.addEventListener("deviceorientation", (e) => {
+          if (!gyroEnabled || e.gamma === null || e.beta === null) return;
+          gyroX = clamp(e.gamma / 45, -1, 1) * 0.35;
+          gyroY = clamp((e.beta - 45) / 45, -1, 1) * 0.22;
+        });
+      }
+
+      setTimeout(() => {
+        hint.style.opacity = "0";
+      }, 4500);
+
+      // Pre-allocate render objects once for zero-allocation 60fps animation
+      const renderList = new Array(points.length);
+      for (let i = 0; i < points.length; i++) {
+        renderList[i] = { sx: 0, sy: 0, z: 0, perspective: 1, alpha: 1, r: 0, g: 0, b: 0, char: "." };
+      }
+
+      const TOTAL_GROW_DURATION = 6800;
+
+      function render(timestamp) {
+        // Safely guard against mobile WebView initial 0-width layout before first paint
+        if (width <= 0 || height <= 0 || canvas.width === 0) {
+          resize();
+        }
+
+        const nowMs = typeof timestamp === "number" && timestamp > 0 ? timestamp : performance.now();
+        if (startTime === null) startTime = nowMs;
+        const elapsed = isPaused ? pausedElapsed : Math.max(0, (nowMs - startTime) * animationSpeed);
+        const rawProgress = clamp(elapsed / TOTAL_GROW_DURATION, 0, 1);
+        // Start the sakura shower and reveal the dedication on the exact final bloom frame.
+        const sakuraStart = TOTAL_GROW_DURATION;
+        const dedicationAt = TOTAL_GROW_DURATION;
+        if (elapsed >= dedicationAt) {
+          dedication.classList.add("visible");
+          dedication.setAttribute("aria-hidden", "false");
+        } else {
+          dedication.classList.remove("visible");
+          dedication.setAttribute("aria-hidden", "true");
+        }
+
+        userYaw = lerp(userYaw, targetYaw + gyroX, 0.085);
+        userPitch = lerp(userPitch, targetPitch + gyroY, 0.085);
+        userZoom = lerp(userZoom, targetZoom, 0.1);
+
+        const tFlow = elapsed * 0.00105;
+        const swayEnvelope = smoothstep(0.22, 1.0, rawProgress);
+        const primarySway = (Math.sin(tFlow * 0.72) * 0.022 + Math.sin(tFlow * 0.31 + 1.1) * 0.012) * swayEnvelope;
+
+        const totalYaw = primarySway + userYaw;
+        const totalPitch = userPitch;
+
+        const cosY = Math.cos(totalYaw);
+        const sinY = Math.sin(totalYaw);
+        const cosX = Math.cos(totalPitch);
+        const sinX = Math.sin(totalPitch);
+
+        ctx.fillStyle = "#030305";
+        ctx.fillRect(0, 0, width, height);
+
+        const effectiveScale = scale * userZoom;
+
+        const auraGrad = ctx.createRadialGradient(
+          cx,
+          cy - 255 * effectiveScale,
+          15 * effectiveScale,
+          cx,
+          cy - 255 * effectiveScale,
+          370 * effectiveScale
+        );
+        auraGrad.addColorStop(0, "rgba(72, 32, 48, 0.26)");
+        auraGrad.addColorStop(0.55, "rgba(35, 22, 36, 0.12)");
+        auraGrad.addColorStop(1, "rgba(3, 3, 5, 0)");
+        ctx.fillStyle = auraGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        if (rawProgress > 0.11) {
+          const bowGlowAlpha = clamp((rawProgress - 0.11) / 0.15, 0, 1) * 0.22;
+          const bowGrad = ctx.createRadialGradient(
+            cx,
+            cy + BOW_Y * effectiveScale,
+            4 * effectiveScale,
+            cx,
+            cy + BOW_Y * effectiveScale,
+            95 * effectiveScale
+          );
+          bowGrad.addColorStop(0, `rgba(235, 65, 110, ${bowGlowAlpha.toFixed(2)})`);
+          bowGrad.addColorStop(1, "rgba(3, 3, 5, 0)");
+          ctx.fillStyle = bowGrad;
+          ctx.fillRect(0, 0, width, height);
+        }
+
+        if (showAmbience) {
+          for (let i = 0; i < bgStars.length; i++) {
+            const st = bgStars[i];
+            const flicker = 0.45 + 0.55 * Math.sin(elapsed * st.twinkleSpeed + st.phase);
+            ctx.fillStyle = `rgba(220, 225, 240, ${(st.alpha * flicker).toFixed(2)})`;
+            ctx.fillRect(st.x * width, st.y * height, st.size, st.size);
+          }
+        }
+
+        // Soft individual halos help the 11 blooms remain visually distinct without changing their ASCII texture.
+        for (let fi = 0; fi < FLOWER_CONFIGS.length; fi++) {
+          const f = FLOWER_CONFIGS[fi];
+          const reveal = smoothstep(0.30 + f.delay * 0.28, 0.72 + f.delay * 0.18, rawProgress);
+          if (reveal <= 0.01) continue;
+          const fx = cx + (f.tx * cosY - f.tz * sinY) * effectiveScale;
+          const fy = cy + (f.ty * effectiveScale);
+          const halo = ctx.createRadialGradient(fx, fy, 2, fx, fy, f.size * effectiveScale * 1.35);
+          const c = f.colors.mid;
+          halo.addColorStop(0, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(0.105 * reveal).toFixed(3)})`);
+          halo.addColorStop(0.58, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(0.035 * reveal).toFixed(3)})`);
+          halo.addColorStop(1, `rgba(${c[0]}, ${c[1]}, ${c[2]}, 0)`);
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(fx, fy, f.size * effectiveScale * 1.35, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // An occasional fine shooting star adds movement to the dark negative space.
+        if (showAmbience && elapsed - lastShootingStar > 6200 && rawProgress > 0.28) {
+          lastShootingStar = elapsed;
+          window.__lilyStar = { x: width * (0.12 + Math.random() * 0.45), y: height * (0.12 + Math.random() * 0.24), born: elapsed, drift: 90 + Math.random() * 70 };
+        }
+        if (showAmbience && window.__lilyStar) {
+          const st = window.__lilyStar;
+          const age = elapsed - st.born;
+          if (age < 850) {
+            const k = age / 850;
+            const sx = st.x + st.drift * k;
+            const sy = st.y + st.drift * 0.28 * k;
+            const grad = ctx.createLinearGradient(sx - 52, sy - 15, sx, sy);
+            grad.addColorStop(0, "rgba(255,225,238,0)");
+            grad.addColorStop(1, `rgba(255,235,245,${(0.78 * (1-k)).toFixed(2)})`);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(sx - 52, sy - 15); ctx.lineTo(sx, sy); ctx.stroke();
+            ctx.fillStyle = `rgba(255,245,250,${(0.9 * (1-k)).toFixed(2)})`;
+            ctx.beginPath(); ctx.arc(sx, sy, 1.7, 0, Math.PI*2); ctx.fill();
+          } else { window.__lilyStar = null; }
+        }
+
+        for (let i = ripples.length - 1; i >= 0; i--) {
+          const rp = ripples[i];
+          rp.r += 2.2;
+          rp.alpha *= 0.93;
+          if (rp.alpha < 0.02) {
+            ripples.splice(i, 1);
+            continue;
+          }
+          ctx.strokeStyle = `rgba(255, 185, 210, ${rp.alpha.toFixed(2)})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        let visibleCount = 0;
+        const fov = 740;
+        const pivotY = -230;
+
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          let x, y, z, alpha = 1;
+
+          if (pt.type === "stem" || pt.type === "leaf" || pt.type === "bow") {
+            if (rawProgress < pt.progressThreshold) continue;
+            alpha = clamp((rawProgress - pt.progressThreshold) / 0.07, 0, 1);
+            x = pt.x;
+            y = pt.y;
+            z = pt.z;
+
+            if (pt.type === "bow" && pt.ribbonWave) {
+              const wave = Math.sin(tFlow * 1.85 + pt.y * 0.06) * pt.ribbonWave * swayEnvelope;
+              x += wave;
+              z += Math.cos(tFlow * 1.6 + pt.x * 0.05) * Math.abs(pt.ribbonWave) * 0.5 * swayEnvelope;
+            }
+          } else {
+            const appearTime = pt.bloomStart - 0.14;
+            if (rawProgress < appearTime) continue;
+            alpha = clamp((rawProgress - appearTime) / 0.10, 0, 1);
+
+            const linearBloom = clamp((rawProgress - pt.bloomStart) / pt.bloomDuration, 0, 1);
+            const bloomT = easeOutQuint(linearBloom);
+
+            x = lerp(pt.bx, pt.ox, bloomT);
+            y = lerp(pt.by, pt.oy, bloomT);
+            z = lerp(pt.bz, pt.oz, bloomT);
+
+            if (pt.petalFlutter && bloomT > 0.25) {
+              const flutter = Math.sin(tFlow * 1.12 + x * 0.018 + y * 0.016) * pt.petalFlutter * bloomT * swayEnvelope;
+              y += flutter * 0.48;
+              z += flutter * 0.42;
+            }
+          }
+
+          const wFactor = pt.swayWeight;
+          const windX = (Math.sin(tFlow * 1.15 + y * 0.007) * 7.5 + Math.cos(tFlow * 0.65 + z * 0.01) * 3.0) * wFactor * wFactor * swayEnvelope;
+          const windZ = Math.cos(tFlow * 0.95 + x * 0.008 + y * 0.005) * 5.0 * wFactor * swayEnvelope;
+
+          const wx = x + windX;
+          const wy = y - pivotY;
+          const wz = z + windZ;
+
+          const rx = wx * cosY - wz * sinY;
+          const rz1 = wx * sinY + wz * cosY;
+          const ry = wy * cosX - rz1 * sinX + pivotY;
+          const rz = wy * sinX + rz1 * cosX;
+
+          const perspective = fov / (fov - rz);
+          if (perspective <= 0.1) continue;
+
+          const screenX = cx + rx * effectiveScale * perspective;
+          const screenY = cy + ry * effectiveScale * perspective;
+
+          if (screenX < -24 || screenX > width + 24 || screenY < -24 || screenY > height + 24) {
+            continue;
+          }
+
+          const item = renderList[visibleCount];
+          item.sx = screenX;
+          item.sy = screenY;
+          item.z = rz;
+          item.perspective = perspective;
+          item.alpha = alpha;
+          item.r = pt.r;
+          item.g = pt.g;
+          item.b = pt.b;
+          item.char = ASCII_CHARS[pt.charIndex];
+          visibleCount++;
+        }
+
+        const activeSlice = renderList.slice(0, visibleCount);
+        activeSlice.sort((a, b) => a.z - b.z);
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        const baseFontSize = Math.max(8, Math.round(10.5 * effectiveScale));
+        let currentFont = "";
+
+        for (let i = 0; i < activeSlice.length; i++) {
+          const item = activeSlice[i];
+          const fontSize = Math.max(7, Math.round(baseFontSize * item.perspective));
+          const fontStr = `bold ${fontSize}px monospace`;
+          if (fontStr !== currentFont) {
+            ctx.font = fontStr;
+            currentFont = fontStr;
+          }
+
+          const depthLight = clamp(0.88 + item.z / 420, 0.56, 1.24);
+          const r = clamp(Math.round(item.r * depthLight), 0, 255);
+          const g = clamp(Math.round(item.g * depthLight), 0, 255);
+          const b = clamp(Math.round(item.b * depthLight), 0, 255);
+
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${item.alpha.toFixed(2)})`;
+          ctx.fillText(item.char, item.sx, item.sy);
+        }
+
+        if (showAmbience && rawProgress > 0.42) {
+          const pollenAlphaBase = smoothstep(0.42, 0.82, rawProgress);
+          for (let i = 0; i < pollenMotes.length; i++) {
+            const m = pollenMotes[i];
+            m.y += m.vy;
+            if (m.y < -520) {
+              m.y = -130 - Math.random() * 60;
+              m.x = (Math.random() - 0.5) * 320;
+            }
+
+            const mx = m.x + Math.sin(tFlow * 1.3 + m.driftPhase) * 14;
+            const my = m.y - pivotY;
+            const mz = m.z + Math.cos(tFlow * 1.1 + m.driftPhase) * 10;
+
+            const rx = mx * cosY - mz * sinY;
+            const rz1 = mx * sinY + mz * cosY;
+            const ry = my * cosX - rz1 * sinX + pivotY;
+            const rz = my * sinX + rz1 * cosX;
+
+            const persp = fov / (fov - rz);
+            if (persp <= 0.1) continue;
+
+            const sx = cx + rx * effectiveScale * persp;
+            const sy = cy + ry * effectiveScale * persp;
+            const shimmer = 0.35 + 0.65 * Math.sin(elapsed * 0.003 + m.driftPhase);
+            const alpha = pollenAlphaBase * shimmer * 0.65;
+
+            ctx.fillStyle = `rgba(${m.hue}, ${alpha.toFixed(2)})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, m.size * persp * effectiveScale, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Tiny drifting hearts orbit the bouquet only after the dedication appears.
+        if (showAmbience && rawProgress > 0.94) {
+          const heartFade = smoothstep(0.94, 0.985, rawProgress);
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          for (const h of heartMotes) {
+            const phase = elapsed * 0.00022 + h.phase;
+            const hx = cx + h.x * effectiveScale + Math.sin(phase) * 13;
+            const hy = cy - (250 + (h.y * -0.15) % 90) * effectiveScale + Math.cos(phase * 0.8) * 12;
+            const alpha = heartFade * (0.24 + 0.22 * (0.5 + 0.5 * Math.sin(phase * 1.7)));
+            ctx.font = `${h.size * effectiveScale}px Georgia, serif`;
+            ctx.fillStyle = `rgba(255,150,190,${alpha.toFixed(2)})`;
+            ctx.shadowColor = "rgba(255,90,150,.5)";
+            ctx.shadowBlur = 10;
+            ctx.fillText("♥", hx, hy);
+          }
+          ctx.restore();
+        }
+
+        // Sakura petals drift down after the final lily opens, then the dedication appears.
+        if (elapsed > sakuraStart) {
+          const showerTime = elapsed - sakuraStart;
+          const showerFade = clamp(showerTime / 650, 0, 1) * (1 - smoothstep(4300, 5600, showerTime));
+          if (showerFade > 0) {
+            ctx.save();
+            for (let i = 0; i < sakuraPetals.length; i++) {
+              const petal = sakuraPetals[i];
+              const fall = (showerTime * petal.speed * 0.055 + petal.y * (height + 180)) % (height + 180);
+              const px = petal.x * width + Math.sin(showerTime * 0.0012 * petal.sway + petal.phase) * petal.drift;
+              const py = fall - 90;
+              const rotation = petal.phase + showerTime * petal.spin;
+              const alpha = petal.alpha * showerFade;
+              ctx.save();
+              ctx.translate(px, py);
+              ctx.rotate(rotation);
+              const grad = ctx.createLinearGradient(-petal.size, -petal.size, petal.size, petal.size);
+              grad.addColorStop(0, `rgba(255,238,246,${(alpha * 0.92).toFixed(3)})`);
+              grad.addColorStop(0.48, `hsla(${petal.hue}, 88%, 78%, ${alpha.toFixed(3)})`);
+              grad.addColorStop(1, `hsla(${petal.hue - 8}, 75%, 58%, ${(alpha * 0.82).toFixed(3)})`);
+              ctx.fillStyle = grad;
+              ctx.shadowColor = "rgba(255,150,195,0.38)";
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.moveTo(0, -petal.size * 1.35);
+              ctx.bezierCurveTo(petal.size * 1.25, -petal.size * 0.95, petal.size * 1.05, petal.size * 0.85, 0, petal.size * 1.25);
+              ctx.bezierCurveTo(-petal.size * 1.05, petal.size * 0.85, -petal.size * 1.25, -petal.size * 0.95, 0, -petal.size * 1.35);
+              ctx.fill();
+              ctx.restore();
+            }
+            ctx.restore();
+          }
+        }
+
+        // A soft halo and tiny glints accent the final message without covering the bouquet.
+        if (elapsed >= dedicationAt) {
+          const reveal = smoothstep(dedicationAt, dedicationAt + 520, elapsed);
+          const pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.0018);
+          const glow = ctx.createRadialGradient(cx, height * 0.83, 2, cx, height * 0.83, 155);
+          glow.addColorStop(0, `rgba(255,125,175,${(0.075 * reveal * (0.7 + pulse * 0.3)).toFixed(3)})`);
+          glow.addColorStop(1, "rgba(255,80,145,0)");
+          ctx.fillStyle = glow;
+          ctx.fillRect(0, height * 0.62, width, height * 0.38);
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => {
+          resize();
+          requestAnimationFrame(render);
+        });
+      } else {
+        resize();
+        requestAnimationFrame(render);
+      }
+    })();
+  </script>
+</body>
+</html>
